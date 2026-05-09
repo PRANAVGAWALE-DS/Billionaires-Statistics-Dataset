@@ -1,0 +1,58 @@
+# ── Virtual environments ──────────────────────────────────────────────────
+venv*/
+.venv/
+env/
+ENV/
+
+# ── Python cache ──────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ── Jupyter ───────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ── Egg / build / dist ────────────────────────────────────────────────────
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Pytest / coverage ─────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── MyPy / type checkers ──────────────────────────────────────────────────
+.mypy_cache/
+.ruff_cache/
+
+# ── Environment variables ─────────────────────────────────────────────────
+.env
+.env.*
+
+# ── OS artefacts ──────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── MLflow / experiment tracking ──────────────────────────────────────────
+mlruns/
+mlartifacts/
+
+# ── Data — raw CSV is committed; processed artefacts are not ──────────────
+data/processed/*
+!data/processed/.gitkeep
+
+# ── Model artefacts ───────────────────────────────────────────────────────
+*.pt
+*.onnx
+*.pkl
+*.joblib
+
+# ── Junk tree artefact (brace-expanded path from tree generator) ──────────
+clean_tree.txt
+{data/

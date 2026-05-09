@@ -1,0 +1,14 @@
+pandas>=2.0
+numpy>=1.25
+scikit-learn>=1.3
+xgboost>=2.0
+optuna>=3.4
+shap>=0.44
+plotly>=5.18
+matplotlib>=3.8
+seaborn>=0.13
+missingno>=0.5
+scipy>=1.11
+statsmodels>=0.14
+nbformat>=5.9
+kaleido>=0.2        # static Plotly image export
