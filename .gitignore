@@ -56,3 +56,4 @@ data/processed/*
 # ── Junk tree artefact (brace-expanded path from tree generator) ──────────
 clean_tree.txt
 {data/
+clean_tree.txt
