@@ -5,8 +5,8 @@
 [![XGBoost](https://img.shields.io/badge/XGBoost-2.x-orange.svg)](https://xgboost.readthedocs.io)
 [![Optuna](https://img.shields.io/badge/Optuna-HPO-blueviolet.svg)](https://optuna.org)
 [![SHAP](https://img.shields.io/badge/SHAP-explainability-red.svg)](https://shap.readthedocs.io)
-[![Streamlit](https://img.shields.io/badge/Streamlit-app-FF4B4B.svg)](https://huggingface.co/spaces/PRANAVGAWALE-DS/billionaires-analysis)
-[![HF Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20HF%20Spaces-live%20demo-yellow.svg)](https://huggingface.co/spaces/PRANAVGAWALE-DS/billionaires-analysis)
+[![Streamlit](https://img.shields.io/badge/Streamlit-app-FF4B4B.svg)](https://huggingface.co/spaces/PG-AIML/billionaires-analysis)
+[![HF Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20HF%20Spaces-live%20demo-yellow.svg)](https://huggingface.co/spaces/PG-AIML/billionaires-analysis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A production-grade ML engineering project built on the [Kaggle Billionaires Statistics Dataset (2023)](https://www.kaggle.com/datasets/nelgiriyewithana/billionaires-statistics-dataset) — from raw CSV to a live interactive demo. Covers the full ML lifecycle: rigorous EDA, statistical testing, three XGBoost models with Optuna HPO and SHAP explainability, a reproducible 7-step training pipeline, 83-test CI suite, FastAPI serving layer, and a Streamlit app deployed on Hugging Face Spaces.
@@ -15,7 +15,7 @@ A production-grade ML engineering project built on the [Kaggle Billionaires Stat
 
 ## 🚀 Live Demo
 
-**[→ Try the Streamlit app on Hugging Face Spaces](https://huggingface.co/spaces/PRANAVGAWALE-DS/billionaires-analysis)**
+**[→ Try the Streamlit app on Hugging Face Spaces](https://huggingface.co/spaces/PG-AIML/billionaires-analysis)**
 
 | Tab | What you can do |
 |---|---|
@@ -302,7 +302,7 @@ streamlit run app.py
 | **What-If Simulator** | Net worth slider, age slider, category / country dropdowns, gender toggle -> probability gauge, metric cards, cluster label, raw JSON expander |
 | **Dataset Explorer** | 5 KPI cards · wealth histogram · choropleth map · industry bar chart · age violin · Lorenz curve · gender sunburst · top-10 table · statistical tests |
 
-**[-> Live on Hugging Face Spaces](https://huggingface.co/spaces/PRANAVGAWALE-DS/billionaires-analysis)**
+**[-> Live on Hugging Face Spaces](https://huggingface.co/spaces/PG-AIML/billionaires-analysis)**
 
 ---
 
