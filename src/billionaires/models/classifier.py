@@ -24,6 +24,10 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+# XGBoost 2.x requires early_stopping_rounds to live in .fit(), not in the
+# constructor — setting it there with eval_set=None raises ValueError.
+_EARLY_STOPPING_ROUNDS = 20
+
 
 @dataclass
 class SelfMadeClassifier:
@@ -51,6 +55,7 @@ class SelfMadeClassifier:
     n_trials: int = 40
     cv_folds: int = 5
     seed: int = 42
+    device: str = "cpu"  # set "cuda" to use GPU (RTX 3050 / any CUDA GPU)
 
     best_params_: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     model_: xgb.XGBClassifier | None = field(default=None, init=False, repr=False)
@@ -61,7 +66,7 @@ class SelfMadeClassifier:
     def tune(self, X: np.ndarray, y: np.ndarray) -> dict[str, Any]:
         """Run Optuna HPO on (X, y) using stratified K-fold CV.
 
-        Optimises ROC-AUC.  Results are stored in :attr:`best_params_`
+        Optimises ROC-AUC.  Results stored in :attr:`best_params_`
         and :attr:`study_`.
 
         Parameters
@@ -90,9 +95,10 @@ class SelfMadeClassifier:
                 reg_alpha=trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
                 reg_lambda=trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
                 random_state=self.seed,
+                device=self.device,
             )
             model = xgb.XGBClassifier(**params)
-            scores = cross_val_score(model, X, y, cv=cv, scoring="roc_auc", n_jobs=-1)
+            scores = cross_val_score(model, X, y, cv=cv, scoring="roc_auc", n_jobs=1)
             return float(scores.mean())
 
         study = optuna.create_study(
@@ -120,29 +126,38 @@ class SelfMadeClassifier:
         If ``best_params_`` is empty (i.e. :meth:`tune` was not called),
         XGBoost defaults are used.
 
+        ``early_stopping_rounds`` is passed to :meth:`xgb.XGBClassifier.fit`
+        only when a validation set is provided — XGBoost 2.x raises
+        ``ValueError`` if it is set without a matching ``eval_set``.
+
         Parameters
         ----------
         X_train, y_train : training data
-        X_val, y_val     : optional validation set for early stopping logs
+        X_val, y_val     : optional validation set for early stopping
 
         Returns
         -------
         self
         """
-        params = {
+        # early_stopping_rounds must NOT go in the constructor in XGBoost 2.x
+        # when eval_set may be absent — keep it in fit() kwargs only.
+        constructor_params = {
             **self.best_params_,
             "random_state": self.seed,
+            "device": self.device,
             "eval_metric": "logloss",
-            "early_stopping_rounds": 20,
         }
-        self.model_ = xgb.XGBClassifier(**params)
-        eval_set = [(X_val, y_val)] if X_val is not None else None
-        self.model_.fit(
-            X_train,
-            y_train,
-            eval_set=eval_set,
-            verbose=False,
-        )
+        # XGBoost 2.x: early_stopping_rounds belongs in the constructor,
+        # NOT in fit().  Only set it when an eval_set will be supplied.
+        if X_val is not None and y_val is not None:
+            constructor_params["early_stopping_rounds"] = _EARLY_STOPPING_ROUNDS
+        self.model_ = xgb.XGBClassifier(**constructor_params)
+
+        fit_kwargs: dict[str, Any] = {"verbose": False}
+        if X_val is not None and y_val is not None:
+            fit_kwargs["eval_set"] = [(X_val, y_val)]
+
+        self.model_.fit(X_train, y_train, **fit_kwargs)
         logger.info("Model fitted on %d samples", len(y_train))
         return self
 
@@ -163,7 +178,12 @@ class SelfMadeClassifier:
 
         Keys
         ----
-        roc_auc, classification_report (str), confusion_matrix (ndarray)
+        roc_auc, accuracy, classification_report (str),
+        confusion_matrix (ndarray)
+
+        .. tip::
+            For richer metrics (precision, recall, F1) use
+            :func:`billionaires.models.evaluate.evaluate_classifier`.
         """
         self._check_fitted()
         y_pred = self.predict(X)

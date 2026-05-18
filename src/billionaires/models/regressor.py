@@ -20,6 +20,10 @@ from sklearn.model_selection import KFold, cross_val_score
 logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
+# XGBoost 2.x requires early_stopping_rounds to live in .fit(), not in the
+# constructor — setting it there with eval_set=None raises ValueError.
+_EARLY_STOPPING_ROUNDS = 20
+
 
 @dataclass
 class WorthRegressor:
@@ -44,6 +48,7 @@ class WorthRegressor:
     n_trials: int = 40
     cv_folds: int = 5
     seed: int = 42
+    device: str = "cpu"  # set "cuda" to use GPU (RTX 3050 / any CUDA GPU)
 
     best_params_: dict[str, Any] = field(default_factory=dict, init=False, repr=False)
     model_: xgb.XGBRegressor | None = field(default=None, init=False, repr=False)
@@ -66,9 +71,10 @@ class WorthRegressor:
                 reg_alpha=trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
                 reg_lambda=trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
                 random_state=self.seed,
+                device=self.device,
             )
             model = xgb.XGBRegressor(**params)
-            scores = cross_val_score(model, X, y, cv=cv, scoring="r2", n_jobs=-1)
+            scores = cross_val_score(model, X, y, cv=cv, scoring="r2", n_jobs=1)
             return float(scores.mean())
 
         study = optuna.create_study(
@@ -91,20 +97,38 @@ class WorthRegressor:
         X_val: np.ndarray | None = None,
         y_val: np.ndarray | None = None,
     ) -> "WorthRegressor":
-        params = {
+        """Fit the regressor with :attr:`best_params_`.
+
+        ``early_stopping_rounds`` is passed to :meth:`xgb.XGBRegressor.fit`
+        only when a validation set is provided — XGBoost 2.x raises
+        ``ValueError`` if it is set without a matching ``eval_set``.
+
+        Parameters
+        ----------
+        X_train, y_train : training data
+        X_val, y_val     : optional validation set for early stopping
+
+        Returns
+        -------
+        self
+        """
+        constructor_params = {
             **self.best_params_,
             "random_state": self.seed,
+            "device": self.device,
             "eval_metric": "rmse",
-            "early_stopping_rounds": 20,
         }
-        self.model_ = xgb.XGBRegressor(**params)
-        eval_set = [(X_val, y_val)] if X_val is not None else None
-        self.model_.fit(
-            X_train,
-            y_train,
-            eval_set=eval_set,
-            verbose=False,
-        )
+        # XGBoost 2.x: early_stopping_rounds belongs in the constructor,
+        # NOT in fit().  Only set it when an eval_set will be supplied.
+        if X_val is not None and y_val is not None:
+            constructor_params["early_stopping_rounds"] = _EARLY_STOPPING_ROUNDS
+        self.model_ = xgb.XGBRegressor(**constructor_params)
+
+        fit_kwargs: dict[str, Any] = {"verbose": False}
+        if X_val is not None and y_val is not None:
+            fit_kwargs["eval_set"] = [(X_val, y_val)]
+
+        self.model_.fit(X_train, y_train, **fit_kwargs)
         logger.info("Regressor fitted on %d samples", len(y_train))
         return self
 
@@ -126,7 +150,12 @@ class WorthRegressor:
     # ── Evaluation ────────────────────────────────────────────────────────
 
     def evaluate(self, X: np.ndarray, y: np.ndarray) -> dict[str, float]:
-        """Return MAE, RMSE, and R² on the log scale."""
+        """Return MAE, RMSE, and R² on the log scale.
+
+        .. tip::
+            For dollar-scale MAPE and richer reporting use
+            :func:`billionaires.models.evaluate.evaluate_regressor`.
+        """
         self._check_fitted()
         y_pred = self.predict(X)
         return {
