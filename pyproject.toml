@@ -51,3 +51,15 @@ ignore = ["E501"]          # line-length already enforced by formatter
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-v --tb=short"
+norecursedirs = [
+    ".git",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".tox",
+    ".venv",
+    "build",
+    "dist",
+    "env",
+    "venv*",
+]
