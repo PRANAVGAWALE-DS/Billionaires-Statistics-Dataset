@@ -43,9 +43,7 @@ def raw_df() -> pd.DataFrame:
             "category": rng.choice(
                 ["Technology", "Finance", "Fashion & Retail", "Manufacturing"], n
             ),
-            "country": rng.choice(
-                ["United States", "China", "India", "Germany", "Brazil"], n
-            ),
+            "country": rng.choice(["United States", "China", "India", "Germany", "Brazil"], n),
             "age": rng.integers(35, 90, n).astype(float),
             "gender": rng.choice(["M", "F"], n),
             "selfMade": rng.choice([True, False], n, p=[0.69, 0.31]),

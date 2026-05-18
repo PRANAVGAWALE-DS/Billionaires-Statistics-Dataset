@@ -108,9 +108,9 @@ class TestFeatureEncoder:
         enc = FeatureEncoder()
         df_enc = enc.fit_transform(feat_df)
         for col in ["category_enc", "country_enc", "gender_enc", "continent_enc"]:
-            assert pd.api.types.is_float_dtype(
+            assert pd.api.types.is_float_dtype(df_enc[col]) or pd.api.types.is_integer_dtype(
                 df_enc[col]
-            ) or pd.api.types.is_integer_dtype(df_enc[col])
+            )
 
     def test_original_not_mutated(self, feat_df):
         cols_before = set(feat_df.columns)
