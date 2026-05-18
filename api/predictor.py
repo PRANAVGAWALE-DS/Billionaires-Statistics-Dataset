@@ -32,10 +32,14 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import joblib
 import numpy as np
 import pandas as pd
+
+if TYPE_CHECKING:
+    from billionaires.features.engineer import FeatureEncoder
 
 logger = logging.getLogger(__name__)
 
@@ -100,7 +104,6 @@ class BillionairesPredictor:
         # Lazy import — keeps BillionairesPredictor definable even if
         # the billionaires package has a transient import error.
         from billionaires.features.engineer import (
-            FeatureEncoder,
             get_clf_features,
             get_cluster_features,
             get_reg_features,

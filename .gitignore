@@ -53,7 +53,6 @@ data/processed/*
 *.pkl
 *.joblib
 
-# ── Junk tree artefact (brace-expanded path from tree generator) ──────────
+# ── Junk tree artefact ────────────────────────────────────────────────────
 clean_tree.txt
-{data/
-clean_tree.txt
+project_tree.txt

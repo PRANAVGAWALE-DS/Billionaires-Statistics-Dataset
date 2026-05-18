@@ -44,6 +44,10 @@ target-version = "py310"
 select = ["E", "F", "W", "I"]
 ignore = ["E501"]          # line-length already enforced by formatter
 
+[tool.ruff.lint.per-file-ignores]
+"app.py" = ["E402"]              # sys.path/bootstrap guards must run before imports
+"notebooks/*.ipynb" = ["E402"]   # notebooks add ../src to sys.path before project imports
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts   = "-v --tb=short"
