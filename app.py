@@ -137,6 +137,10 @@ def _load_data() -> pd.DataFrame:
     from billionaires.features.engineer import build_features
 
     df = build_features(clean(load_raw(_DATA_PATH)), encode=True)
+    # The source CSV stores finalWorth in millions USD; display in billions.
+    df["finalWorth"] = df["finalWorth"] / 1000
+    df["log_worth"] = np.log1p(df["finalWorth"])
+    df["wealth_per_decade"] = df["finalWorth"] / (df["age"] / 10).replace(0, np.nan)
     return df
 
 

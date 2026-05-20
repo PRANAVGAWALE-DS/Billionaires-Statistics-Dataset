@@ -254,7 +254,8 @@ class BillionairesPredictor:
         X = df[self._reg_cols].to_numpy()
 
         log_pred = float(self._reg.predict(X)[0])
-        worth_pred = float(np.expm1(log_pred))
+        # expm1 returns the CSV unit, millions USD; API response uses billions.
+        worth_pred = float(np.expm1(log_pred)) / 1000
         return {
             "log_worth_predicted": round(log_pred, 4),
             "worth_billion_usd": round(worth_pred, 4),
