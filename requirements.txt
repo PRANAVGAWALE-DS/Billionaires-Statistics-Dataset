@@ -1,14 +1,26 @@
+# Core runtime dependencies
+# Keep in sync with pyproject.toml [project.dependencies]
 pandas>=2.0
 numpy>=1.25
 scikit-learn>=1.3
 xgboost>=2.0
 optuna>=3.4
-shap>=0.44
+joblib>=1.3          # FIX H5 — direct dep for artifact serialisation
 plotly>=5.18
 matplotlib>=3.8
 seaborn>=0.13
-missingno>=0.5
-scipy>=1.11
-statsmodels>=0.14
-nbformat>=5.9
-kaleido>=0.2        # static Plotly image export
+streamlit>=1.32      # FIX H5 — app.py is a primary deliverable
+
+# API extras (also in [project.optional-dependencies.api])
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.0
+
+# Notebook / EDA extras (FIX L8 — separated from core)
+# Install with: pip install -e ".[notebook]"
+# shap>=0.44
+# missingno>=0.5
+# scipy>=1.11
+# statsmodels>=0.14
+# nbformat>=5.9
+# kaleido>=0.2

@@ -7,13 +7,20 @@ Design notes
 ------------
 - PredictRequest does not include selfMade — the API infers it from
   the classifier so the caller only needs observable attributes.
+- ``gender`` is constrained to ``Literal["M", "F"]`` for strict
+  boundary validation.  Unknown ``category`` / ``country`` values are
+  accepted and silently map to -1 via OrdinalEncoder's
+  ``handle_unknown="use_encoded_value"`` — this is logged in the
+  predictor but does not raise an error.
 - Every response model is flat (no nested dicts) so the OpenAPI docs
   render cleanly and clients can access fields without extra unpacking.
 """
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from typing import Literal
+
+from pydantic import BaseModel, Field, field_validator
 
 # ── Request ───────────────────────────────────────────────────────────────
 
@@ -24,7 +31,10 @@ class PredictRequest(BaseModel):
     finalWorth: float = Field(
         ...,
         gt=0,
-        description="Net worth in billion USD (e.g. 5.2 = $5.2B).",
+        description=(
+            "Net worth in billion USD (e.g. 5.2 = $5.2B).  "
+            "Internally converted to million USD to match the training scale."
+        ),
         examples=[5.2],
     )
     age: float = Field(
@@ -36,22 +46,40 @@ class PredictRequest(BaseModel):
     )
     category: str = Field(
         ...,
+        min_length=1,
         description=(
             "Wealth category — e.g. 'Technology', 'Finance', "
-            "'Fashion & Retail', 'Manufacturing'."
+            "'Fashion & Retail', 'Manufacturing'.  "
+            "Unrecognised values are encoded as -1 (out-of-vocabulary)."
         ),
         examples=["Technology"],
     )
     country: str = Field(
         ...,
-        description="Country of residence — e.g. 'United States', 'China'.",
+        min_length=1,
+        description=(
+            "Country of residence — e.g. 'United States', 'China'.  "
+            "Unrecognised values are encoded as -1 (out-of-vocabulary)."
+        ),
         examples=["United States"],
     )
-    gender: str = Field(
+    # FIX L3 — constrain gender to the two values seen during training.
+    # Any other string would silently encode to -1 and produce misleading
+    # predictions with no error surfaced to the caller.
+    gender: Literal["M", "F"] = Field(
         ...,
-        description="Gender — 'M' or 'F'.",
+        description="Gender — must be 'M' or 'F'.",
         examples=["M"],
     )
+
+    @field_validator("category", "country")
+    @classmethod
+    def _no_whitespace_only(cls, v: str) -> str:
+        """Reject strings that are all whitespace after stripping."""
+        stripped = v.strip()
+        if not stripped:
+            raise ValueError("Field must not be blank or whitespace-only.")
+        return stripped
 
     model_config = {
         "json_schema_extra": {
@@ -91,17 +119,24 @@ class SelfMadeResponse(BaseModel):
 
 
 class WorthResponse(BaseModel):
-    """Regressor output for net-worth prediction."""
+    """Regressor output for net-worth prediction.
+
+    .. warning::
+        The regressor achieves R²≈0.05 on held-out data — it explains
+        roughly 5% of log-worth variance.  ``worth_billion_usd`` reflects
+        population-level trends (industry, geography, age) and should be
+        treated as a directional estimate, not a precise point forecast.
+    """
 
     log_worth_predicted: float = Field(
         ...,
-        description="Predicted log1p(finalWorth) — the model's native output.",
+        description="Predicted log1p(finalWorth_millions) — the model's native output.",
     )
     worth_billion_usd: float = Field(
         ...,
         description=(
             "Back-transformed prediction in billion USD "
-            "(expm1 of log_worth_predicted)."
+            "(expm1(log_worth_predicted) / 1000)."
         ),
     )
     selfMade_used: int = Field(
@@ -116,7 +151,14 @@ class WorthResponse(BaseModel):
 
 
 class ClusterResponse(BaseModel):
-    """Clusterer output for wealth segment assignment."""
+    """Clusterer output for wealth segment assignment.
+
+    Notes
+    -----
+    The clusterer was fitted on the full dataset (train + val + test) for
+    exploratory segmentation.  Cluster IDs are stable within a given
+    pipeline run but may shift if the pipeline is re-run with a different k.
+    """
 
     cluster: int = Field(
         ...,

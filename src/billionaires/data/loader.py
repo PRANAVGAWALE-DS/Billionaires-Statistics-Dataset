@@ -21,7 +21,10 @@ REQUIRED_COLUMNS: frozenset[str] = frozenset(
     {"personName", "finalWorth", "category", "country", "age", "gender", "selfMade"}
 )
 
-# Columns to coerce to numeric
+# Columns to coerce to numeric during cleaning.
+# NOTE — birthYear is coerced here for data-integrity reasons (mixed dtype
+# in the raw CSV) but is NOT used as a model feature.  Do not add it to any
+# feature list in engineer.py without revisiting the leakage implications.
 NUMERIC_COLUMNS: list[str] = ["finalWorth", "age", "birthYear"]
 
 
@@ -107,7 +110,9 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── 3. Smart age imputation ──────────────────────────────────────────
     if "age" in df.columns:
-        df["age"] = df.groupby("category")["age"].transform(lambda x: x.fillna(x.median()))
+        df["age"] = df.groupby("category")["age"].transform(
+            lambda x: x.fillna(x.median())
+        )
         global_median_age = df["age"].median()
         df["age"] = df["age"].fillna(global_median_age)
         logger.info("Age imputation complete (per-category median)")
@@ -117,7 +122,11 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
         df["selfMade"] = df["selfMade"].astype(bool).astype(int)
 
     # ── 5. Strip string whitespace ───────────────────────────────────────
-    str_cols = df.select_dtypes(include="object").columns
+    # include=["object", "string"] covers both the legacy object dtype
+    # (pandas 2) and the explicit StringDtype (pandas 3).  Using only
+    # "object" triggers a Pandas4Warning in pandas 2.x because pandas 3
+    # separates string from object and the implicit inclusion is deprecated.
+    str_cols = df.select_dtypes(include=["object", "string"]).columns
     for col in str_cols:
         df[col] = df[col].str.strip()
 

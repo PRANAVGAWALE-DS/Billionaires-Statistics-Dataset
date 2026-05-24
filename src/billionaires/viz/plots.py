@@ -12,6 +12,8 @@ Design rules
 * Static charts use Matplotlib/Seaborn; interactive charts use Plotly.
 * Functions accept a ``save_path`` kwarg; if provided the figure is
   written to disk before returning.
+* ``shap`` is imported lazily inside :func:`shap_summary` to avoid
+  loading a heavy optional dependency at module import time.
 """
 
 from __future__ import annotations
@@ -26,13 +28,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import seaborn as sns
-import shap
 from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 
 # ── Shared style ──────────────────────────────────────────────────────────
 sns.set_theme(style="whitegrid", palette="muted", font_scale=1.15)
-plt.rcParams.update({"figure.dpi": 110, "axes.titleweight": "bold", "axes.titlesize": 14})
+plt.rcParams.update(
+    {"figure.dpi": 110, "axes.titleweight": "bold", "axes.titlesize": 14}
+)
 _BLUE = "#4C72B0"
 _ORANGE = "#DD8452"
 
@@ -117,7 +120,10 @@ def age_distribution(
     axes[0].set_xticklabels(["Inherited (0)", "Self-Made (1)"])
     axes[0].set_title("Age Distribution by Wealth Origin")
 
-    order = ["<40", "40–54", "55–64", "65–79", "80+"]
+    # FIX M1 — use hyphens (-) to match _AGE_LABELS in engineer.py.
+    # The original code used en-dashes (–) which never matched any category,
+    # silently dropping the four middle age bins from the box plot.
+    order = ["<40", "40-54", "55-64", "65-79", "80+"]
     available = [o for o in order if o in df["age_group"].cat.categories]
     sns.boxplot(
         data=df,
@@ -154,7 +160,9 @@ def top_categories(df: pd.DataFrame) -> go.Figure:
         title="Top 15 Categories — Median Net Worth (B USD)",
         labels={"median": "Median ($B)", "category": "Category"},
     )
-    fig.update_layout(yaxis={"autorange": "reversed"}, coloraxis_showscale=False, height=500)
+    fig.update_layout(
+        yaxis={"autorange": "reversed"}, coloraxis_showscale=False, height=500
+    )
     return fig
 
 
@@ -199,8 +207,12 @@ def self_made_comparison(df: pd.DataFrame) -> go.Figure:
     agg["label"] = agg["selfMade"].map({0: "Inherited", 1: "Self-Made"})
 
     fig = go.Figure()
-    fig.add_trace(go.Bar(name="Mean", x=agg["label"], y=agg["mean"], marker_color=_BLUE))
-    fig.add_trace(go.Bar(name="Median", x=agg["label"], y=agg["median"], marker_color=_ORANGE))
+    fig.add_trace(
+        go.Bar(name="Mean", x=agg["label"], y=agg["mean"], marker_color=_BLUE)
+    )
+    fig.add_trace(
+        go.Bar(name="Median", x=agg["label"], y=agg["median"], marker_color=_ORANGE)
+    )
     fig.update_layout(
         barmode="group",
         title="Net Worth Comparison — Self-Made vs Inherited",
@@ -224,7 +236,9 @@ def lorenz_curve(
     gini = float((2 * (index * values).sum() / (n * values.sum())) - (n + 1) / n)
 
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.plot(cum_pop, cum_w, lw=2.5, color=_BLUE, label=f"Lorenz Curve  (Gini = {gini:.3f})")
+    ax.plot(
+        cum_pop, cum_w, lw=2.5, color=_BLUE, label=f"Lorenz Curve  (Gini = {gini:.3f})"
+    )
     ax.plot([0, 1], [0, 1], "k--", lw=1.5, label="Perfect Equality")
     ax.fill_between(cum_pop, cum_pop, cum_w, alpha=0.15, color=_BLUE)
     ax.set_xlabel("Cumulative population share")
@@ -381,10 +395,22 @@ def shap_summary(
     Returns
     -------
     plt.Figure
+
+    Notes
+    -----
+    ``shap`` is imported lazily to avoid loading a heavy optional
+    dependency for callers that never use SHAP explainability.
     """
+    # FIX M7 — deferred import: shap is heavy and optional.
+    # Importing at module level would force every consumer of plots.py
+    # (including lightweight inference containers) to install shap.
+    import shap  # noqa: PLC0415
+
     explainer = shap.TreeExplainer(model)
     shap_vals = explainer.shap_values(X)
-    shap.summary_plot(shap_vals, X, feature_names=feature_names, plot_type=plot_type, show=False)
+    shap.summary_plot(
+        shap_vals, X, feature_names=feature_names, plot_type=plot_type, show=False
+    )
     fig = plt.gcf()
     if save_path:
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)

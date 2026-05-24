@@ -22,53 +22,53 @@ from billionaires.features.engineer import (
 
 
 class TestBuildFeatures:
-    def test_returns_dataframe(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_returns_dataframe(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert isinstance(df, pd.DataFrame)
 
-    def test_original_not_mutated(self, clean_df):
-        cols_before = set(clean_df.columns)
-        build_features(clean_df, encode=False)
-        assert set(clean_df.columns) == cols_before
+    def test_original_not_mutated(self, sample_df_clean):
+        cols_before = set(sample_df_clean.columns)
+        build_features(sample_df_clean, encode=False)
+        assert set(sample_df_clean.columns) == cols_before
 
-    def test_adds_log_worth(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_adds_log_worth(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert "log_worth" in df.columns
 
-    def test_log_worth_finite(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_log_worth_finite(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert np.isfinite(df["log_worth"]).all()
 
-    def test_adds_age_group(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_adds_age_group(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert "age_group" in df.columns
 
-    def test_adds_wealth_per_decade(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_adds_wealth_per_decade(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert "wealth_per_decade" in df.columns
 
-    def test_adds_continent(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_adds_continent(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         assert "continent" in df.columns
 
-    def test_continent_no_nulls(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_continent_no_nulls(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         # unknown countries fall back to "Other" — no NaN
         assert df["continent"].isna().sum() == 0
 
-    def test_encode_true_adds_enc_cols(self, clean_df):
-        df = build_features(clean_df, encode=True)
+    def test_encode_true_adds_enc_cols(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=True)
         for col in ["category_enc", "country_enc", "gender_enc", "continent_enc"]:
             assert col in df.columns, f"missing {col}"
 
-    def test_encode_false_no_enc_cols(self, clean_df):
-        df = build_features(clean_df, encode=False)
+    def test_encode_false_no_enc_cols(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
         for col in ["category_enc", "country_enc", "gender_enc", "continent_enc"]:
             assert col not in df.columns, f"unexpected {col}"
 
-    def test_row_count_preserved(self, clean_df):
-        df = build_features(clean_df, encode=False)
-        assert len(df) == len(clean_df)
+    def test_row_count_preserved(self, sample_df_clean):
+        df = build_features(sample_df_clean, encode=False)
+        assert len(df) == len(sample_df_clean)
 
 
 # ── FeatureEncoder ────────────────────────────────────────────────────────
@@ -76,8 +76,8 @@ class TestBuildFeatures:
 
 class TestFeatureEncoder:
     @pytest.fixture
-    def feat_df(self, clean_df):
-        return build_features(clean_df, encode=False)
+    def feat_df(self, sample_df_clean):
+        return build_features(sample_df_clean, encode=False)
 
     def test_fit_transform_adds_enc_cols(self, feat_df):
         enc = FeatureEncoder()
@@ -108,9 +108,9 @@ class TestFeatureEncoder:
         enc = FeatureEncoder()
         df_enc = enc.fit_transform(feat_df)
         for col in ["category_enc", "country_enc", "gender_enc", "continent_enc"]:
-            assert pd.api.types.is_float_dtype(df_enc[col]) or pd.api.types.is_integer_dtype(
+            assert pd.api.types.is_float_dtype(
                 df_enc[col]
-            )
+            ) or pd.api.types.is_integer_dtype(df_enc[col])
 
     def test_original_not_mutated(self, feat_df):
         cols_before = set(feat_df.columns)

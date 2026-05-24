@@ -44,6 +44,7 @@ os.environ.setdefault("MKL_NUM_THREADS", "1")
 import argparse
 import json
 import logging
+import random
 import sys
 import time
 from pathlib import Path
@@ -285,10 +286,17 @@ def _run_clusterer(
 ) -> tuple[BillionaireClusterer, dict[str, float]]:
     """Fit the clusterer on the full encoded dataset and evaluate quality.
 
-    The clusterer is intentionally fit on the full dataset rather than only
-    the training split — K-Means here is used for exploratory segmentation,
-    not prediction.  Fitting on all 2,640 rows produces more stable and
-    interpretable cluster centroids for profiling and visualisation.
+    Design note — full-dataset fit
+    --------------------------------
+    The clusterer is intentionally fitted on all rows (train + val + test)
+    rather than only the training split.  K-Means here serves exploratory
+    wealth segmentation, not predictive modelling — maximising the number
+    of billionaires visible to the centroid algorithm produces more stable
+    and interpretable segments for profiling and visualisation.
+
+    This is explicitly documented here and in ``api/predictor.py`` and
+    ``api/schemas.py`` so that the trade-off is visible at every layer
+    of the system.
 
     Parameters
     ----------
@@ -321,7 +329,6 @@ def _run_clusterer(
         "Fitting clusterer%s ...",
         f" (fixed k={cluster_k})" if cluster_k is not None else " (auto elbow search)",
     )
-    # k is a positional default-None arg: .fit(X) for auto, .fit(X, k) for fixed
     clusterer.fit(X_cluster, cluster_k)
 
     # evaluate_clusters expects already-scaled features
@@ -373,8 +380,10 @@ def _serialize(
     logger.info("Saved XGBoost native models → %s", out_dir)
 
     # ── Feature column manifest ─────────────────────────────────────────
-    # Stored separately so the inference layer can validate its input schema
-    # without loading any model object.
+    # The inference layer (BillionairesPredictor) reads column lists from
+    # this file rather than from the installed package — ensuring the
+    # serving layer is always aligned with the exact feature set frozen
+    # at training time regardless of any subsequent changes to engineer.py.
     feature_cols: dict[str, list[str]] = {
         "clf": get_clf_features(),
         "reg": get_reg_features(),
@@ -421,8 +430,6 @@ def _print_summary(
     print("\n  ① Self-Made Classifier  (XGBoost + Optuna HPO)")
     print(thin)
     clf_table = metrics_table({"val": clf_metrics["val"], "test": clf_metrics["test"]})
-    # drop non-numeric keys (classification_report, confusion_matrix) already
-    # handled by metrics_table — just print what's there
     print(clf_table.to_string())
 
     print("\n  ② Net-Worth Regressor  (log scale + dollar-scale MAPE)")
@@ -467,7 +474,8 @@ def run_pipeline(
     out_dir    : Directory for all serialised outputs.
     n_trials   : Optuna HPO trials per model (classifier + regressor each).
     cv_folds   : CV folds during HPO.
-    seed       : Global random seed (applied to splits, HPO, models).
+    seed       : Global random seed (applied to Python stdlib, NumPy,
+                 splits, HPO samplers, and all model random states).
     val_size   : Validation fraction of the full dataset.
     test_size  : Test fraction of the full dataset.
     skip_hpo   : Skip Optuna; use XGBoost defaults.  Useful for fast
@@ -482,6 +490,14 @@ def run_pipeline(
          "cluster": {...}}
     """
     t0 = time.perf_counter()
+
+    # FIX M6 — set global random seeds for Python stdlib and NumPy.
+    # sklearn/XGBoost/Optuna components each accept their own random_state,
+    # but global seeds are required for full reproducibility of any NumPy
+    # or stdlib random calls that don't receive an explicit seed.
+    random.seed(seed)
+    np.random.seed(seed)
+
     logger.info("═" * 50)
     logger.info("Billionaires ML Pipeline — starting")
     logger.info(
@@ -524,7 +540,7 @@ def run_pipeline(
     df_train_enc = enc.fit_transform(df_train)
     df_val_enc = enc.transform(df_val)
     df_test_enc = enc.transform(df_test)
-    # Full-dataset encoding for the clusterer (unsupervised — no leakage risk)
+    # Full-dataset encoding for the clusterer (unsupervised — see _run_clusterer)
     df_full_enc = enc.transform(df_feat)
 
     # ── 5. Self-Made Classifier ───────────────────────────────────────────

@@ -20,8 +20,9 @@ from sklearn.model_selection import KFold, cross_val_score
 logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-# XGBoost 2.x requires early_stopping_rounds to live in .fit(), not in the
-# constructor — setting it there with eval_set=None raises ValueError.
+# XGBoost 2.x: early_stopping_rounds belongs in the constructor, NOT in
+# fit().  Only set it when an eval_set will be supplied; omitting it when
+# no eval_set is present avoids the ValueError XGBoost 2.x raises.
 _EARLY_STOPPING_ROUNDS = 20
 
 
@@ -96,12 +97,12 @@ class WorthRegressor:
         y_train: np.ndarray,
         X_val: np.ndarray | None = None,
         y_val: np.ndarray | None = None,
-    ) -> "WorthRegressor":
+    ) -> WorthRegressor:
         """Fit the regressor with :attr:`best_params_`.
 
-        ``early_stopping_rounds`` is passed to :meth:`xgb.XGBRegressor.fit`
-        only when a validation set is provided — XGBoost 2.x raises
-        ``ValueError`` if it is set without a matching ``eval_set``.
+        ``early_stopping_rounds`` is passed to the constructor only when a
+        validation set is provided — XGBoost 2.x raises ``ValueError`` if it
+        is set without a matching ``eval_set``.
 
         Parameters
         ----------

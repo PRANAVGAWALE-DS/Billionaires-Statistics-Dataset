@@ -266,6 +266,15 @@ def get_clf_features() -> list[str]:
     via ``log_worth``).  ``wealth_per_decade`` is a legitimate predictor
     for the classifier — net worth is known before the self-made question
     is asked and does not constitute leakage.
+
+    Note on ``log_worth``
+    ---------------------
+    ``log_worth = log1p(finalWorth)`` is a monotone transformation of the
+    input feature ``finalWorth``, not of the classifier's binary target
+    ``selfMade``.  Using it in the classifier is valid: we are predicting
+    *how* someone became wealthy, given *how much* they are worth.
+    This differs from the regressor case, where ``log_worth`` IS the
+    target — making it illegal as a regressor feature.
     """
     base = ["age", "log_worth", "wealth_per_decade"]
     encoded = [f"{c}_enc" for c in _ENCODE_COLS]

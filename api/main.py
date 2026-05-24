@@ -26,6 +26,14 @@ POST /predict                 → run all three models; returns combined respons
 POST /predict/self-made       → classifier only  (P(selfMade))
 POST /predict/worth           → regressor only   (log_worth + back-transform)
 POST /predict/cluster         → clusterer only   (wealth segment)
+
+Preferred usage
+---------------
+Use ``POST /predict`` when you need results from more than one model in a
+single request.  Calling ``/predict/worth`` and ``/predict/cluster``
+separately runs the classifier twice — once to infer ``selfMade`` for each
+endpoint — which is unnecessary when the combined endpoint reuses the
+single classifier output.
 """
 
 from __future__ import annotations
@@ -95,7 +103,12 @@ app = FastAPI(
     description=(
         "Serves three XGBoost models trained on the Kaggle Billionaires "
         "Statistics Dataset (2023): a self-made classifier, a net-worth "
-        "regressor, and a wealth-segment clusterer."
+        "regressor, and a wealth-segment clusterer.\n\n"
+        "**Note — Regressor accuracy**: The net-worth regressor achieves "
+        "R²≈0.05 on held-out data.  It captures population-level trends "
+        "(industry, geography, age) but cannot predict individual wealth "
+        "magnitude with precision.  Treat ``worth_billion_usd`` as a "
+        "directional estimate, not a point forecast."
     ),
     version="1.0.0",
     lifespan=lifespan,
@@ -133,7 +146,8 @@ def health(request: Request) -> HealthResponse:
     """Return 200 when all models are loaded, 503 otherwise.
 
     Unlike naive health endpoints that always return 200, this one
-    reflects the actual model load status.
+    reflects the actual model load status — suitable for readiness
+    probes and load balancers.
     """
     predictor: BillionairesPredictor | None = request.app.state.predictor
     if predictor is None or not predictor.loaded:
@@ -182,9 +196,12 @@ def metrics(request: Request) -> MetricsResponse:
 def predict(body: PredictRequest, request: Request) -> PredictResponse:
     """Run the classifier, regressor, and clusterer in a single call.
 
-    ``selfMade`` is inferred from the classifier and propagated as a
-    feature to the regressor and clusterer — callers never need to
+    **Preferred endpoint** when you need results from more than one model.
+    ``selfMade`` is inferred from the classifier exactly once and propagated
+    as a feature to the regressor and clusterer — callers never need to
     supply it.
+
+    See ``WorthResponse`` for the regressor's accuracy caveats (R²≈0.05).
     """
     predictor = _get_predictor(request)
     result = predictor.predict_all(
@@ -212,6 +229,9 @@ def predict_self_made(body: PredictRequest, request: Request) -> SelfMadeRespons
 
     Returns the probability P(selfMade=1), hard prediction, and
     a human-readable label.
+
+    If you also need regressor or cluster output, call ``POST /predict``
+    instead to avoid running the classifier twice.
     """
     predictor = _get_predictor(request)
     result = predictor.predict_self_made(
@@ -235,6 +255,10 @@ def predict_worth(body: PredictRequest, request: Request) -> WorthResponse:
 
     ``selfMade`` is inferred from the classifier and noted in the
     response as ``selfMade_used`` for transparency.
+
+    **Accuracy caveat**: R²≈0.05 — treat ``worth_billion_usd`` as a
+    directional estimate.  If you also need cluster output, use
+    ``POST /predict`` to avoid running the classifier twice.
     """
     predictor = _get_predictor(request)
     sm = predictor.predict_self_made(
@@ -266,6 +290,9 @@ def predict_cluster(body: PredictRequest, request: Request) -> ClusterResponse:
 
     ``selfMade`` is inferred from the classifier before cluster
     assignment.
+
+    If you also need classifier or regressor output, use ``POST /predict``
+    to avoid running the classifier twice.
     """
     predictor = _get_predictor(request)
     sm = predictor.predict_self_made(

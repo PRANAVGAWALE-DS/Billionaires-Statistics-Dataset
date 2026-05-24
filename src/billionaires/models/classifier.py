@@ -24,8 +24,9 @@ from sklearn.model_selection import StratifiedKFold, cross_val_score
 logger = logging.getLogger(__name__)
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
-# XGBoost 2.x requires early_stopping_rounds to live in .fit(), not in the
-# constructor — setting it there with eval_set=None raises ValueError.
+# XGBoost 2.x: early_stopping_rounds belongs in the constructor, NOT in
+# fit().  Only set it when an eval_set will be supplied; omitting it when
+# no eval_set is present avoids the ValueError XGBoost 2.x raises.
 _EARLY_STOPPING_ROUNDS = 20
 
 
@@ -69,6 +70,10 @@ class SelfMadeClassifier:
         Optimises ROC-AUC.  Results stored in :attr:`best_params_`
         and :attr:`study_`.
 
+        ``scale_pos_weight`` is included in the search space to handle
+        class imbalance between Self-Made (majority) and Inherited
+        (minority) — leaving it at 1.0 suppresses Inherited recall.
+
         Parameters
         ----------
         X : np.ndarray  shape (n_samples, n_features)
@@ -79,7 +84,9 @@ class SelfMadeClassifier:
         dict
             Best hyperparameter dictionary.
         """
-        cv = StratifiedKFold(n_splits=self.cv_folds, shuffle=True, random_state=self.seed)
+        cv = StratifiedKFold(
+            n_splits=self.cv_folds, shuffle=True, random_state=self.seed
+        )
 
         def _objective(trial: optuna.Trial) -> float:
             params = dict(
@@ -92,6 +99,10 @@ class SelfMadeClassifier:
                 gamma=trial.suggest_float("gamma", 0.0, 0.5),
                 reg_alpha=trial.suggest_float("reg_alpha", 1e-4, 10.0, log=True),
                 reg_lambda=trial.suggest_float("reg_lambda", 1e-4, 10.0, log=True),
+                # FIX H1 — tune scale_pos_weight to address class imbalance.
+                # Searching [0.5, 3.0] covers both minority-boost and majority-boost
+                # scenarios; Optuna will find the balance that maximises AUC.
+                scale_pos_weight=trial.suggest_float("scale_pos_weight", 0.5, 3.0),
                 random_state=self.seed,
                 device=self.device,
             )
@@ -118,15 +129,15 @@ class SelfMadeClassifier:
         y_train: np.ndarray,
         X_val: np.ndarray | None = None,
         y_val: np.ndarray | None = None,
-    ) -> "SelfMadeClassifier":
+    ) -> SelfMadeClassifier:
         """Fit the classifier with :attr:`best_params_`.
 
         If ``best_params_`` is empty (i.e. :meth:`tune` was not called),
         XGBoost defaults are used.
 
-        ``early_stopping_rounds`` is passed to :meth:`xgb.XGBClassifier.fit`
-        only when a validation set is provided — XGBoost 2.x raises
-        ``ValueError`` if it is set without a matching ``eval_set``.
+        ``early_stopping_rounds`` is passed to the constructor only when a
+        validation set is provided — XGBoost 2.x raises ``ValueError`` if it
+        is set without a matching ``eval_set``.
 
         Parameters
         ----------
@@ -137,8 +148,6 @@ class SelfMadeClassifier:
         -------
         self
         """
-        # early_stopping_rounds must NOT go in the constructor in XGBoost 2.x
-        # when eval_set may be absent — keep it in fit() kwargs only.
         constructor_params = {
             **self.best_params_,
             "random_state": self.seed,

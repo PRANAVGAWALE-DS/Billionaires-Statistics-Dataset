@@ -92,7 +92,7 @@ class BillionaireClusterer:
 
     # ── Public API ────────────────────────────────────────────────────────
 
-    def fit(self, X: np.ndarray, k: int | None = None) -> "BillionaireClusterer":
+    def fit(self, X: np.ndarray, k: int | None = None) -> BillionaireClusterer:
         """Scale → (optionally) elbow search → fit final K-Means → fit PCA.
 
         Parameters
@@ -117,10 +117,15 @@ class BillionaireClusterer:
         self.k_ = k
 
         # 3. Fit final model.
+        # FIX H4 — use n_init=10 (sklearn default) for stable convergence.
+        # OMP_NUM_THREADS=1 is set at the top of pipeline.py and app.py,
+        # which eliminates the Windows OpenMP thread-pool deadlock that
+        # previously motivated n_init=1.  Multiple initialisations are now
+        # safe and materially improve centroid stability.
         self.model_ = KMeans(
             n_clusters=k,
             random_state=self.seed,
-            n_init=1,  # avoid OpenMP thread-pool deadlock on Windows
+            n_init=10,
             algorithm="lloyd",
         )
         self.labels_ = self.model_.fit_predict(X_scaled)
@@ -171,7 +176,9 @@ class BillionaireClusterer:
         X_scaled = self.scaler_.transform(X)
         return self.model_.predict(X_scaled)
 
-    def cluster_profiles(self, df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
+    def cluster_profiles(
+        self, df: pd.DataFrame, feature_cols: list[str]
+    ) -> pd.DataFrame:
         """Per-cluster mean and median for each feature.
 
         Parameters
@@ -192,7 +199,9 @@ class BillionaireClusterer:
         self._check_fitted()
         profile_df = df[feature_cols].copy()
         profile_df["cluster"] = self.labels_
-        return profile_df.groupby("cluster")[feature_cols].agg(["mean", "median"]).round(3)
+        return (
+            profile_df.groupby("cluster")[feature_cols].agg(["mean", "median"]).round(3)
+        )
 
     def diagnostics(self) -> pd.DataFrame:
         """Return a tidy DataFrame of inertia and silhouette per k tested.
@@ -237,7 +246,7 @@ class BillionaireClusterer:
             km = KMeans(
                 n_clusters=k,
                 random_state=self.seed,
-                n_init=1,
+                n_init=10,
                 algorithm="lloyd",
             )
             labels = km.fit_predict(X_scaled)

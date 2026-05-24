@@ -21,9 +21,9 @@ from billionaires.models.regressor import WorthRegressor
 
 
 @pytest.fixture(scope="module")
-def reg_arrays(clean_df):
+def reg_arrays(sample_df_clean):
     """(X, y) arrays ready for WorthRegressor.fit()."""
-    df_feat = build_features(clean_df, encode=False)
+    df_feat = build_features(sample_df_clean, encode=False)
     enc = FeatureEncoder()
     df_enc = enc.fit_transform(df_feat)
     feats = [f for f in get_reg_features() if f in df_enc.columns]

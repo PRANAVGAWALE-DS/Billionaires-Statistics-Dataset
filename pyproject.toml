@@ -8,28 +8,48 @@ version         = "1.0.0"
 description     = "Advanced EDA & ML pipeline — Billionaires Statistics Dataset"
 requires-python = ">=3.10"
 dependencies    = [
+    # ── Data & ML core ──────────────────────────────────────────────────
     "pandas>=2.0",
     "numpy>=1.25",
     "scikit-learn>=1.3",
     "xgboost>=2.0",
     "optuna>=3.4",
-    "shap>=0.44",
+    # ── Feature serialisation ────────────────────────────────────────────
+    # FIX H5 — joblib is a direct dependency (artifact save/load in
+    # pipeline.py and predictor.py).  Previously omitted and only present
+    # as a scikit-learn transitive dep, which is fragile.
+    "joblib>=1.3",
+    # ── Visualisation ────────────────────────────────────────────────────
     "plotly>=5.18",
     "matplotlib>=3.8",
     "seaborn>=0.13",
-    "missingno>=0.5",
-    "scipy>=1.11",
-    "statsmodels>=0.14",
-    "nbformat>=5.9",
+    # ── App ──────────────────────────────────────────────────────────────
+    # FIX H5 — streamlit is a first-class deliverable (app.py is the
+    # primary user interface).  Must be declared here so `pip install -e .`
+    # produces a working environment.
+    "streamlit>=1.32",
 ]
 
 [project.optional-dependencies]
 api = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
+    "pydantic>=2.0",
+]
+# FIX L8 — notebook-only deps moved out of core.  Installing the package
+# for inference (API server, HF Spaces) no longer pulls in ~120 MB of
+# statistical / notebook tooling.
+notebook = [
+    "shap>=0.44",
+    "missingno>=0.5",
+    "scipy>=1.11",
+    "statsmodels>=0.14",
+    "nbformat>=5.9",
+    "kaleido>=0.2",        # static Plotly image export
 ]
 dev = [
     "pytest>=7.4",
+    "pytest-cov>=4.0",     # FIX M10 — coverage measurement
     "ruff>=0.4",
 ]
 
@@ -45,12 +65,17 @@ select = ["E", "F", "W", "I"]
 ignore = ["E501"]          # line-length already enforced by formatter
 
 [tool.ruff.lint.per-file-ignores]
-"app.py" = ["E402"]              # sys.path/bootstrap guards must run before imports
+"app.py" = ["E402"]              # sys.path bootstrap guards must run before imports
 "notebooks/*.ipynb" = ["E402"]   # notebooks add ../src to sys.path before project imports
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts   = "-v --tb=short"
+testpaths  = ["tests"]
+# pythonpath adds these directories to sys.path before collection begins.
+# "."  → makes api/ importable (api.main, api.predictor, api.schemas)
+# "src" → makes billionaires/ importable without relying solely on the
+#          editable install (belt-and-suspenders for CI clean-installs).
+pythonpath = [".", "src"]
+addopts    = "-v --tb=short --cov=src/billionaires --cov-report=term-missing"
 norecursedirs = [
     ".git",
     ".mypy_cache",

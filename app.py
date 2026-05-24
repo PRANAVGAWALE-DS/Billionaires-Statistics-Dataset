@@ -109,12 +109,25 @@ _COUNTRIES = [
     "Nigeria",
 ]
 
-_CLUSTER_LABELS = {
-    0: "Emerging Wealth",
-    1: "Mid-Tier Magnate",
-    2: "Upper Echelon",
-    3: "Ultra-High Net Worth",
-}
+# FIX M2 — cluster labels are now generated dynamically from the loaded
+# model's k, so they remain correct if the pipeline is re-run with a
+# different --cluster-k value.  The _CLUSTER_LABELS dict has been removed.
+_CLUSTER_LABEL_POOL = [
+    "Emerging Wealth",
+    "Mid-Tier Magnate",
+    "Upper Echelon",
+    "Ultra-High Net Worth",
+    "Mega Billionaire",
+    "Centibillionaire",
+]
+
+
+def _get_cluster_label(cluster_id: int, n_clusters: int) -> str:
+    """Return a descriptive label for a cluster ID given total cluster count."""
+    if cluster_id < len(_CLUSTER_LABEL_POOL):
+        return _CLUSTER_LABEL_POOL[cluster_id]
+    return f"Wealth Segment {cluster_id}"
+
 
 _PALETTE = px.colors.qualitative.Bold
 
@@ -136,11 +149,17 @@ def _load_data() -> pd.DataFrame:
     from billionaires.data.loader import clean, load_raw
     from billionaires.features.engineer import build_features
 
-    df = build_features(clean(load_raw(_DATA_PATH)), encode=True)
-    # The source CSV stores finalWorth in millions USD; display in billions.
-    df["finalWorth"] = df["finalWorth"] / 1000
-    df["log_worth"] = np.log1p(df["finalWorth"])
-    df["wealth_per_decade"] = df["finalWorth"] / (df["age"] / 10).replace(0, np.nan)
+    df_raw = clean(load_raw(_DATA_PATH))
+
+    # FIX M5 — convert millions → billions BEFORE calling build_features so
+    # that all derived columns (log_worth, wealth_per_decade) are computed
+    # on the display scale consistently.  Previously the conversion happened
+    # AFTER build_features, leaving log_worth and wealth_per_decade on the
+    # millions scale in the DataFrame while the display showed billions —
+    # making the histogram x-axis inconsistent with the tooltip values.
+    df_raw = df_raw.copy()
+    df_raw["finalWorth"] = df_raw["finalWorth"] / 1_000  # millions → billions
+    df = build_features(df_raw, encode=True)
     return df
 
 
@@ -215,7 +234,7 @@ def _render_simulator(predictor) -> None:
             max_value=200.0,
             value=5.0,
             step=0.5,
-            help="finalWorth in the dataset is in billion USD.",
+            help="Enter net worth in billion USD. Converted to million USD internally to match the training scale.",
         )
         age = st.slider(
             "Age",
@@ -262,7 +281,7 @@ def _render_simulator(predictor) -> None:
         # ── Self-Made probability gauge ───────────────────────────────────
         st.plotly_chart(
             _probability_gauge(sm["probability"], "Self-Made Probability"),
-            use_container_width=True,
+            width="stretch",
             config={"displayModeBar": False},
         )
 
@@ -273,25 +292,40 @@ def _render_simulator(predictor) -> None:
             "Prediction",
             f"{label_colour} {sm['label']}",
         )
+
+        # FIX L1 / C2 — read R² dynamically from the loaded artifact metrics
+        # instead of a hardcoded literal.  This keeps the tooltip accurate
+        # after any pipeline re-run.
+        r2_test = (
+            predictor.metrics.get("regressor", {})
+            .get("test", {})
+            .get("r2", float("nan"))
+        )
         m2.metric(
             "Predicted worth",
-            f"${worth['worth_billion_usd']:,.1f}B",
-            help="Regressor back-transformed from log scale. "
-            "R²=0.08 — treat as indicative, not precise.",
+            f"${worth['worth_billion_usd']:,.2f}B",
+            help=(
+                f"Regressor back-transformed from log scale.  "
+                f"R²={r2_test:.3f} (test set) — reflects population-level trends "
+                f"only.  Treat as a directional estimate, not a point forecast."
+            ),
         )
+
+        # FIX M2 — cluster label driven from the model's k at runtime.
         cluster_id = cluster["cluster"]
+        n_clusters = cluster["n_clusters"]
+        cluster_label = _get_cluster_label(cluster_id, n_clusters)
         m3.metric(
             "Wealth segment",
             f"Cluster {cluster_id}",
-            help=_CLUSTER_LABELS.get(cluster_id, ""),
+            help=cluster_label,
         )
 
         # ── Cluster label ─────────────────────────────────────────────────
         st.info(
-            f"**Cluster {cluster_id} — "
-            f"{_CLUSTER_LABELS.get(cluster_id, 'Wealth Segment')}**  \n"
+            f"**Cluster {cluster_id} — {cluster_label}**  \n"
             f"Silhouette score: {cluster['silhouette']:.3f}  ·  "
-            f"k = {cluster['n_clusters']} clusters total"
+            f"k = {n_clusters} clusters total"
         )
 
         # ── Detail expander ───────────────────────────────────────────────
@@ -346,7 +380,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
             margin=dict(t=10, b=30),
             height=320,
         )
-        st.plotly_chart(fig_hist, use_container_width=True)
+        st.plotly_chart(fig_hist, width="stretch")
 
     with r1c2:
         st.markdown("##### Billionaires by Industry")
@@ -367,7 +401,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
             height=320,
             yaxis={"categoryorder": "total ascending"},
         )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        st.plotly_chart(fig_bar, width="stretch")
 
     # ── Row 2: geography ──────────────────────────────────────────────────
     st.markdown("##### Geographic Distribution")
@@ -382,25 +416,105 @@ def _render_explorer(df: pd.DataFrame) -> None:
         .agg(count=("finalWorth", "size"), total_worth=("finalWorth", "sum"))
         .reset_index()
     )
+
+    # FIX: Plotly is deprecating the "country names" locationmode geocoding
+    # library.  Switch to ISO-3 for stable, future-proof rendering.
+    _ISO3: dict[str, str] = {
+        "United States": "USA",
+        "China": "CHN",
+        "India": "IND",
+        "Germany": "DEU",
+        "Russia": "RUS",
+        "United Kingdom": "GBR",
+        "France": "FRA",
+        "Brazil": "BRA",
+        "Canada": "CAN",
+        "Australia": "AUS",
+        "Hong Kong": "HKG",
+        "Switzerland": "CHE",
+        "Singapore": "SGP",
+        "Japan": "JPN",
+        "South Korea": "KOR",
+        "Italy": "ITA",
+        "Sweden": "SWE",
+        "Netherlands": "NLD",
+        "Israel": "ISR",
+        "Saudi Arabia": "SAU",
+        "United Arab Emirates": "ARE",
+        "Taiwan": "TWN",
+        "Indonesia": "IDN",
+        "Mexico": "MEX",
+        "South Africa": "ZAF",
+        "Turkey": "TUR",
+        "Spain": "ESP",
+        "Norway": "NOR",
+        "Thailand": "THA",
+        "Nigeria": "NGA",
+        "Belgium": "BEL",
+        "Austria": "AUT",
+        "Denmark": "DNK",
+        "Finland": "FIN",
+        "Ireland": "IRL",
+        "Portugal": "PRT",
+        "Poland": "POL",
+        "Czech Republic": "CZE",
+        "Greece": "GRC",
+        "Hungary": "HUN",
+        "Romania": "ROU",
+        "Ukraine": "UKR",
+        "Colombia": "COL",
+        "Chile": "CHL",
+        "Argentina": "ARG",
+        "Venezuela": "VEN",
+        "Peru": "PER",
+        "Malaysia": "MYS",
+        "Philippines": "PHL",
+        "Vietnam": "VNM",
+        "Pakistan": "PAK",
+        "Bangladesh": "BGD",
+        "Kazakhstan": "KAZ",
+        "Uzbekistan": "UZB",
+        "Azerbaijan": "AZE",
+        "Kuwait": "KWT",
+        "Qatar": "QAT",
+        "Oman": "OMN",
+        "Bahrain": "BHR",
+        "Lebanon": "LBN",
+        "Jordan": "JOR",
+        "Sri Lanka": "LKA",
+        "Myanmar": "MMR",
+        "Egypt": "EGY",
+        "Kenya": "KEN",
+        "Morocco": "MAR",
+        "Tanzania": "TZA",
+        "Algeria": "DZA",
+        "New Zealand": "NZL",
+    }
+    # Use a column name that is never passed to hover_data — Plotly silently
+    # drops all geography matches when the `locations` column also appears in
+    # hover_data (even with value=False), producing a blank map.
+    country_agg["iso3_code"] = country_agg["country"].map(_ISO3)
+    country_agg = country_agg.dropna(subset=["iso3_code"])
+
     z_col = "count" if "count" in geo_col else "total_worth"
     z_label = "Count" if "count" in geo_col else "Total Wealth ($B)"
 
     fig_map = px.choropleth(
         country_agg,
-        locations="country",
-        locationmode="country names",
+        locations="iso3_code",
+        locationmode="ISO-3",
         color=z_col,
         color_continuous_scale="Viridis",
         labels={z_col: z_label},
         hover_name="country",
-        hover_data={"count": True, "total_worth": ":.1f"},
+        hover_data={"count": True, "total_worth": ":.1f", "iso3_code": False},
     )
     fig_map.update_layout(
         margin=dict(t=0, b=0, l=0, r=0),
         height=380,
         geo=dict(showframe=False, showcoastlines=True),
     )
-    st.plotly_chart(fig_map, use_container_width=True)
+    st.plotly_chart(fig_map, width="stretch")
 
     # ── Row 3: age distribution + Lorenz curve ────────────────────────────
     r3c1, r3c2 = st.columns(2)
@@ -424,7 +538,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
             height=320,
             xaxis=dict(tickvals=[0, 1], ticktext=["Inherited", "Self-Made"]),
         )
-        st.plotly_chart(fig_box, use_container_width=True)
+        st.plotly_chart(fig_box, width="stretch")
 
     with r3c2:
         st.markdown("##### Lorenz Curve — Wealth Inequality")
@@ -457,7 +571,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
             margin=dict(t=10, b=30),
             height=320,
         )
-        st.plotly_chart(fig_lorenz, use_container_width=True)
+        st.plotly_chart(fig_lorenz, width="stretch")
 
     # ── Row 4: gender breakdown + top 10 ─────────────────────────────────
     r4c1, r4c2 = st.columns([0.7, 1.3])
@@ -480,7 +594,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
             margin=dict(t=10, b=10),
             height=300,
         )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width="stretch")
 
     with r4c2:
         st.markdown("##### Top 10 Billionaires by Net Worth")
@@ -499,7 +613,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
                 "age": "Age",
             }
         )
-        st.dataframe(top10.reset_index(drop=True), use_container_width=True, height=320)
+        st.dataframe(top10.reset_index(drop=True), width="stretch", height=320)
 
     # ── Statistical tests summary ─────────────────────────────────────────
     with st.expander("📐 Statistical test results"):
