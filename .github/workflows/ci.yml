@@ -55,4 +55,4 @@ jobs:
         # --cov-fail-under=70 catches regressions where new code is added
         # without tests.  Coverage config lives in pyproject.toml
         # ([tool.pytest.ini_options] addopts).
-        run: pytest tests/ -v --tb=short --cov=src/billionaires --cov-report=term-missing --cov-fail-under=70s
+        run: pytest tests/ -v --tb=short --cov=src/billionaires --cov-report=term-missing --cov-fail-under=70
