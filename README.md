@@ -9,7 +9,7 @@
 [![HF Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20HF%20Spaces-live%20demo-yellow.svg)](https://huggingface.co/spaces/PG-AIML/billionaires-analysis)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-A production-grade ML engineering project built on the [Kaggle Billionaires Statistics Dataset (2023)](https://www.kaggle.com/datasets/nelgiriyewithana/billionaires-statistics-dataset) — from raw CSV to a live interactive demo. Covers the full ML lifecycle: rigorous EDA, statistical testing, three XGBoost models with Optuna HPO and SHAP explainability, a reproducible 7-step training pipeline, 162-test CI suite, FastAPI serving layer, and a Streamlit app deployed on Hugging Face Spaces.
+A production-grade ML engineering project built on the [Kaggle Billionaires Statistics Dataset (2023)](https://www.kaggle.com/datasets/nelgiriyewithana/billionaires-statistics-dataset) — from raw CSV to a live interactive demo. Covers the full ML lifecycle: rigorous EDA, statistical testing, three XGBoost models with Optuna HPO and SHAP explainability, a reproducible 7-step training pipeline, 178-test CI suite, FastAPI serving layer, and a Streamlit app deployed on Hugging Face Spaces.
 
 ---
 
@@ -164,7 +164,9 @@ billionaires-analysis/
 │   ├── test_regressor.py     ← 20 tests
 │   ├── test_clusterer.py     ← 26 tests
 │   ├── test_predictor.py     ← 35 tests  (incl. unit-scale regression guard)
-│   └── test_api.py           ← 24 tests  (FastAPI TestClient, schema validation)
+│   ├── test_api.py           ← 24 tests  (FastAPI TestClient, schema validation)
+│   ├── test_evaluate.py      ← 5 tests   (metrics helpers + table formatting)
+│   └── test_plots.py         ← 11 tests  (Matplotlib/Plotly figure helpers)
 ├── .github/
 │   └── workflows/
 │       └── ci.yml            ← lint → test on Python 3.10, 3.11, 3.12
@@ -205,7 +207,7 @@ streamlit run app.py
 # 7 — Or start the FastAPI server
 uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 
-# 8 — Run the full test suite (162 tests)
+# 8 — Run the full test suite (178 tests)
 pytest
 ```
 
@@ -401,10 +403,10 @@ Groups billionaires into wealth segments using K-Means.
 
 ## Test Suite
 
-162 tests across 7 modules, organised by class. Run with:
+178 tests across 9 modules, organised by class. Run with:
 
 ```bash
-pytest                           # all 162 tests with coverage report
+pytest                           # all 178 tests with coverage report
 pytest tests/test_loader.py -v   # single module
 pytest tests/test_api.py -v      # API route tests
 ```
@@ -418,6 +420,8 @@ pytest tests/test_api.py -v      # API route tests
 | `test_clusterer.py` | 26 | fit, elbow search, PCA, predict, profiles, `n_init` regression guard |
 | `test_predictor.py` | 35 | Artifact loading, **unit-scale regression guard (C1)**, feature column alignment, all `predict_*` contracts |
 | `test_api.py` | 24 | All 6 FastAPI routes, schema rejection (422), 503 on missing models |
+| `test_evaluate.py` | 5 | Classifier/regressor/cluster metrics, `metrics_table` filtering and rounding |
+| `test_plots.py` | 11 | Matplotlib/Plotly figure helpers, save paths, non-GUI renderability |
 
 All tests use a 120-row synthetic `DataFrame` defined in `conftest.py` — no CSV or pre-trained artifacts required. CI runs on every push and PR via GitHub Actions (`ruff check` → `ruff format --check` → `pytest --cov --cov-fail-under=70`) across **Python 3.10, 3.11, and 3.12**.
 

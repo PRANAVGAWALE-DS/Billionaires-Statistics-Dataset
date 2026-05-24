@@ -13,6 +13,7 @@ streamlit>=1.32      # FIX H5 — app.py is a primary deliverable
 
 # API extras (also in [project.optional-dependencies.api])
 fastapi>=0.110
+httpx>=0.27
 uvicorn[standard]>=0.29
 pydantic>=2.0
 
