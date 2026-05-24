@@ -296,11 +296,7 @@ def _render_simulator(predictor) -> None:
         # FIX L1 / C2 — read R² dynamically from the loaded artifact metrics
         # instead of a hardcoded literal.  This keeps the tooltip accurate
         # after any pipeline re-run.
-        r2_test = (
-            predictor.metrics.get("regressor", {})
-            .get("test", {})
-            .get("r2", float("nan"))
-        )
+        r2_test = predictor.metrics.get("regressor", {}).get("test", {}).get("r2", float("nan"))
         m2.metric(
             "Predicted worth",
             f"${worth['worth_billion_usd']:,.2f}B",
@@ -350,7 +346,7 @@ def _render_explorer(df: pd.DataFrame) -> None:
     k1, k2, k3, k4, k5 = st.columns(5)
     k1.metric("Billionaires", f"{len(df):,}")
     k2.metric("Median net worth", f"${df['finalWorth'].median():.1f}B")
-    k3.metric("Self-made", f"{df['selfMade'].mean()*100:.1f}%")
+    k3.metric("Self-made", f"{df['selfMade'].mean() * 100:.1f}%")
     k4.metric(
         "Gini coefficient",
         f"{gini_val:.3f}",

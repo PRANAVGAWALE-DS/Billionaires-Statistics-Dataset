@@ -93,9 +93,7 @@ def evaluate_classifier(
         "precision": precision_score(y_true, y_pred, zero_division=0),
         "recall": recall_score(y_true, y_pred, zero_division=0),
         "f1": f1_score(y_true, y_pred, zero_division=0),
-        "classification_report": classification_report(
-            y_true, y_pred, target_names=label_names
-        ),
+        "classification_report": classification_report(y_true, y_pred, target_names=label_names),
         "confusion_matrix": confusion_matrix(y_true, y_pred),
     }
     logger.info(
@@ -148,10 +146,7 @@ def evaluate_regressor(
     if exponentiated:
         y_true_raw = np.expm1(y_true)
         y_pred_raw = np.expm1(y_pred)
-        mape = float(
-            np.mean(np.abs((y_true_raw - y_pred_raw) / (np.abs(y_true_raw) + 1e-8)))
-            * 100
-        )
+        mape = float(np.mean(np.abs((y_true_raw - y_pred_raw) / (np.abs(y_true_raw) + 1e-8))) * 100)
         metrics["mae_raw"] = float(mean_absolute_error(y_true_raw, y_pred_raw))
         metrics["rmse_raw"] = float(np.sqrt(mean_squared_error(y_true_raw, y_pred_raw)))
         metrics["mape_raw"] = mape

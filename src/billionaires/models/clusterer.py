@@ -176,9 +176,7 @@ class BillionaireClusterer:
         X_scaled = self.scaler_.transform(X)
         return self.model_.predict(X_scaled)
 
-    def cluster_profiles(
-        self, df: pd.DataFrame, feature_cols: list[str]
-    ) -> pd.DataFrame:
+    def cluster_profiles(self, df: pd.DataFrame, feature_cols: list[str]) -> pd.DataFrame:
         """Per-cluster mean and median for each feature.
 
         Parameters
@@ -199,9 +197,7 @@ class BillionaireClusterer:
         self._check_fitted()
         profile_df = df[feature_cols].copy()
         profile_df["cluster"] = self.labels_
-        return (
-            profile_df.groupby("cluster")[feature_cols].agg(["mean", "median"]).round(3)
-        )
+        return profile_df.groupby("cluster")[feature_cols].agg(["mean", "median"]).round(3)
 
     def diagnostics(self) -> pd.DataFrame:
         """Return a tidy DataFrame of inertia and silhouette per k tested.

@@ -84,9 +84,7 @@ class SelfMadeClassifier:
         dict
             Best hyperparameter dictionary.
         """
-        cv = StratifiedKFold(
-            n_splits=self.cv_folds, shuffle=True, random_state=self.seed
-        )
+        cv = StratifiedKFold(n_splits=self.cv_folds, shuffle=True, random_state=self.seed)
 
         def _objective(trial: optuna.Trial) -> float:
             params = dict(

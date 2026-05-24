@@ -155,9 +155,7 @@ class BillionairesPredictor:
     @property
     def loaded(self) -> bool:
         """True once :meth:`load` has completed successfully."""
-        return all(
-            x is not None for x in [self._clf, self._reg, self._clusterer, self._enc]
-        )
+        return all(x is not None for x in [self._clf, self._reg, self._clusterer, self._enc])
 
     @property
     def artifact_names(self) -> list[str]:
@@ -341,9 +339,7 @@ class BillionairesPredictor:
         X = df[self._cluster_cols].to_numpy()
 
         cluster = int(self._clusterer.predict(X)[0])
-        silhouette = float(
-            self._metrics.get("clusterer", {}).get("silhouette", float("nan"))
-        )
+        silhouette = float(self._metrics.get("clusterer", {}).get("silhouette", float("nan")))
         return {
             "cluster": cluster,
             "n_clusters": int(self._clusterer.k_),
@@ -386,9 +382,7 @@ class BillionairesPredictor:
         sm_pred = sm["prediction"]  # classifier output → regressor/cluster feature
 
         worth = self.predict_worth(finalWorth, age, category, country, gender, sm_pred)
-        cluster = self.predict_cluster(
-            finalWorth, age, category, country, gender, sm_pred
-        )
+        cluster = self.predict_cluster(finalWorth, age, category, country, gender, sm_pred)
 
         return {"self_made": sm, "worth": worth, "cluster": cluster}
 
@@ -396,6 +390,4 @@ class BillionairesPredictor:
 
     def _check_loaded(self) -> None:
         if not self.loaded:
-            raise RuntimeError(
-                "BillionairesPredictor is not loaded. Call .load() first."
-            )
+            raise RuntimeError("BillionairesPredictor is not loaded. Call .load() first.")

@@ -95,33 +95,25 @@ class TestElbowSearch:
             assert k in clusterer_auto_k.inertias_
             assert clusterer_auto_k.inertias_[k] > 0
 
-    def test_silhouettes_populated(
-        self, clusterer_auto_k: BillionaireClusterer
-    ) -> None:
+    def test_silhouettes_populated(self, clusterer_auto_k: BillionaireClusterer) -> None:
         assert len(clusterer_auto_k.silhouettes_) == 3
         for k in range(2, 5):
             assert -1.0 <= clusterer_auto_k.silhouettes_[k] <= 1.0
 
-    def test_best_k_maximises_silhouette(
-        self, clusterer_auto_k: BillionaireClusterer
-    ) -> None:
+    def test_best_k_maximises_silhouette(self, clusterer_auto_k: BillionaireClusterer) -> None:
         best_from_dict = max(
             clusterer_auto_k.silhouettes_,
             key=lambda k: clusterer_auto_k.silhouettes_[k],
         )
         assert clusterer_auto_k.k_ == best_from_dict
 
-    def test_diagnostics_returns_dataframe(
-        self, clusterer_auto_k: BillionaireClusterer
-    ) -> None:
+    def test_diagnostics_returns_dataframe(self, clusterer_auto_k: BillionaireClusterer) -> None:
         df = clusterer_auto_k.diagnostics()
         assert isinstance(df, pd.DataFrame)
         assert "inertia" in df.columns
         assert "silhouette" in df.columns
 
-    def test_diagnostics_empty_when_k_fixed(
-        self, clusterer_fixed_k: BillionaireClusterer
-    ) -> None:
+    def test_diagnostics_empty_when_k_fixed(self, clusterer_fixed_k: BillionaireClusterer) -> None:
         df = clusterer_fixed_k.diagnostics()
         assert df.empty
 

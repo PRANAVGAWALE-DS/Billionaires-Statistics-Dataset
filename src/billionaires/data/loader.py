@@ -110,9 +110,7 @@ def clean(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── 3. Smart age imputation ──────────────────────────────────────────
     if "age" in df.columns:
-        df["age"] = df.groupby("category")["age"].transform(
-            lambda x: x.fillna(x.median())
-        )
+        df["age"] = df.groupby("category")["age"].transform(lambda x: x.fillna(x.median()))
         global_median_age = df["age"].median()
         df["age"] = df["age"].fillna(global_median_age)
         logger.info("Age imputation complete (per-category median)")

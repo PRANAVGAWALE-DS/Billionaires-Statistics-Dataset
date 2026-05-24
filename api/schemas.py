@@ -135,8 +135,7 @@ class WorthResponse(BaseModel):
     worth_billion_usd: float = Field(
         ...,
         description=(
-            "Back-transformed prediction in billion USD "
-            "(expm1(log_worth_predicted) / 1000)."
+            "Back-transformed prediction in billion USD (expm1(log_worth_predicted) / 1000)."
         ),
     )
     selfMade_used: int = Field(
@@ -144,8 +143,7 @@ class WorthResponse(BaseModel):
         ge=0,
         le=1,
         description=(
-            "The selfMade value used as a regressor feature — "
-            "inferred from the classifier."
+            "The selfMade value used as a regressor feature — inferred from the classifier."
         ),
     )
 
@@ -195,9 +193,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="'ok' when all models are loaded.")
     models_loaded: bool
-    artifacts: list[str] = Field(
-        ..., description="Names of artifact files successfully loaded."
-    )
+    artifacts: list[str] = Field(..., description="Names of artifact files successfully loaded.")
 
 
 class MetricsResponse(BaseModel):

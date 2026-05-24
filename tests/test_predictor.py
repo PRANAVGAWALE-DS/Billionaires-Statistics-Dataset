@@ -31,9 +31,7 @@ class TestPredicatorLoad:
     def test_load_succeeds(self, loaded_predictor: BillionairesPredictor) -> None:
         assert loaded_predictor.loaded is True
 
-    def test_artifact_names_populated(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_artifact_names_populated(self, loaded_predictor: BillionairesPredictor) -> None:
         names = loaded_predictor.artifact_names
         assert len(names) > 0
         assert "classifier.joblib" in names
@@ -119,9 +117,7 @@ class TestBuildRowUnitConversion:
     _LOG_WORTH_MIN = 6.0
     _LOG_WORTH_MAX = 14.0
 
-    def test_log_worth_in_training_range(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_log_worth_in_training_range(self, loaded_predictor: BillionairesPredictor) -> None:
         row = loaded_predictor._build_row(**self._INPUTS)
         log_worth = float(row["log_worth"].iloc[0])
         assert self._LOG_WORTH_MIN < log_worth < self._LOG_WORTH_MAX, (
@@ -131,9 +127,7 @@ class TestBuildRowUnitConversion:
             "is missing or incorrect (C1)."
         )
 
-    def test_final_worth_stored_as_millions(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_final_worth_stored_as_millions(self, loaded_predictor: BillionairesPredictor) -> None:
         """finalWorth in the built row must be ~5 000 (millions), not 5 (billions)."""
         row = loaded_predictor._build_row(**self._INPUTS)
         fw = float(row["finalWorth"].iloc[0])
@@ -142,9 +136,7 @@ class TestBuildRowUnitConversion:
             "Check the *1000 conversion in _build_row."
         )
 
-    def test_wealth_per_decade_not_tiny(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_wealth_per_decade_not_tiny(self, loaded_predictor: BillionairesPredictor) -> None:
         """wealth_per_decade must also be on the millions scale."""
         row = loaded_predictor._build_row(**self._INPUTS)
         wpd = float(row["wealth_per_decade"].iloc[0])
@@ -167,27 +159,19 @@ class TestPredictSelfMade:
         gender="M",
     )
 
-    def test_returns_required_keys(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_returns_required_keys(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_self_made(**self._COMMON)
         assert set(result) == {"probability", "prediction", "label"}
 
-    def test_probability_in_unit_interval(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_probability_in_unit_interval(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_self_made(**self._COMMON)
         assert 0.0 <= result["probability"] <= 1.0
 
-    def test_prediction_is_binary(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_prediction_is_binary(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_self_made(**self._COMMON)
         assert result["prediction"] in (0, 1)
 
-    def test_label_matches_prediction(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_label_matches_prediction(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_self_made(**self._COMMON)
         expected = "Self-Made" if result["prediction"] == 1 else "Inherited"
         assert result["label"] == expected
@@ -197,9 +181,7 @@ class TestPredictSelfMade:
         r2 = loaded_predictor.predict_self_made(**self._COMMON)
         assert r1["probability"] == r2["probability"]
 
-    def test_unknown_country_does_not_raise(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_unknown_country_does_not_raise(self, loaded_predictor: BillionairesPredictor) -> None:
         """OrdinalEncoder unknown_value=-1 must absorb unseen categories."""
         result = loaded_predictor.predict_self_made(
             finalWorth=5.0,
@@ -224,9 +206,7 @@ class TestPredictWorth:
         selfMade=1,
     )
 
-    def test_returns_required_keys(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_returns_required_keys(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_worth(**self._COMMON)
         assert set(result) == {
             "log_worth_predicted",
@@ -238,15 +218,11 @@ class TestPredictWorth:
         result = loaded_predictor.predict_worth(**self._COMMON)
         assert result["log_worth_predicted"] > 0
 
-    def test_worth_billion_usd_positive(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_worth_billion_usd_positive(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_worth(**self._COMMON)
         assert result["worth_billion_usd"] > 0
 
-    def test_back_transform_consistency(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_back_transform_consistency(self, loaded_predictor: BillionairesPredictor) -> None:
         """expm1(log_worth_predicted) / 1000 must equal worth_billion_usd."""
         import math
 
@@ -254,9 +230,7 @@ class TestPredictWorth:
         expected = math.expm1(result["log_worth_predicted"]) / 1_000
         assert abs(result["worth_billion_usd"] - expected) < 0.01
 
-    def test_selfmade_used_propagated(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_selfmade_used_propagated(self, loaded_predictor: BillionairesPredictor) -> None:
         for sm in (0, 1):
             result = loaded_predictor.predict_worth(
                 finalWorth=5.0,
@@ -282,9 +256,7 @@ class TestPredictCluster:
         selfMade=1,
     )
 
-    def test_returns_required_keys(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_returns_required_keys(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_cluster(**self._COMMON)
         assert set(result) == {"cluster", "n_clusters", "silhouette"}
 
@@ -292,9 +264,7 @@ class TestPredictCluster:
         result = loaded_predictor.predict_cluster(**self._COMMON)
         assert 0 <= result["cluster"] < result["n_clusters"]
 
-    def test_n_clusters_matches_model(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_n_clusters_matches_model(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_cluster(**self._COMMON)
         assert result["n_clusters"] == loaded_predictor._clusterer.k_
 
@@ -311,22 +281,16 @@ class TestPredictAll:
         gender="M",
     )
 
-    def test_returns_all_three_keys(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_returns_all_three_keys(self, loaded_predictor: BillionairesPredictor) -> None:
         result = loaded_predictor.predict_all(**self._COMMON)
         assert set(result) == {"self_made", "worth", "cluster"}
 
-    def test_selfmade_propagated_to_worth(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_selfmade_propagated_to_worth(self, loaded_predictor: BillionairesPredictor) -> None:
         """selfMade used by regressor must equal the classifier's prediction."""
         result = loaded_predictor.predict_all(**self._COMMON)
         assert result["worth"]["selfMade_used"] == result["self_made"]["prediction"]
 
-    def test_selfmade_propagated_to_cluster(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_selfmade_propagated_to_cluster(self, loaded_predictor: BillionairesPredictor) -> None:
         """Cluster model uses the same selfMade as the classifier output."""
         # We can't directly assert this from predict_all's return, but we can
         # verify that calling predict_cluster with the same selfMade produces
@@ -337,9 +301,7 @@ class TestPredictAll:
         )
         assert result["cluster"]["cluster"] == cluster_direct["cluster"]
 
-    def test_deterministic_across_calls(
-        self, loaded_predictor: BillionairesPredictor
-    ) -> None:
+    def test_deterministic_across_calls(self, loaded_predictor: BillionairesPredictor) -> None:
         r1 = loaded_predictor.predict_all(**self._COMMON)
         r2 = loaded_predictor.predict_all(**self._COMMON)
         assert r1["self_made"]["probability"] == r2["self_made"]["probability"]
